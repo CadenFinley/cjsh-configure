@@ -1,7 +1,7 @@
 #include <iostream>
 
-#include "../include/tui_configurator.h"
 #include "../include/cjsh_filesystem.h"
+#include "../include/tui_configurator.h"
 
 int main(int argc, char* argv[]) {
   initialize_cjsh_directories();
