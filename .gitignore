@@ -1,0 +1,55 @@
+# CMake build output
+/build/
+/CMakeFiles/
+/CMakeCache.txt
+cmake_install.cmake
+Makefile
+CTestTestfile.cmake
+Testing/
+
+# User-local CMake settings
+CMakeSettings.json
+
+# VS Code settings
+.vscode/
+.vscode-test/
+
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+__MACOSX/
+
+# Build artifacts (executables, object files, libraries)
+*.out
+*.exe
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+
+# Precompiled headers
+*.gch
+*.pch
+
+# Coverage data
+*.gcno
+*.gcda
+coverage/
+
+# Logs and databases
+*.log
+*.sql
+*.sqlite
+
+# Editor temporary files
+*~
+*.swp
+*.tmp
+
+# JetBrains IDEs
+.idea/
