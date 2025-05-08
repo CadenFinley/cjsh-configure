@@ -1,4 +1,5 @@
 #include "../include/tui_configurator.h"
+#include "../include/cjsh_filesystem.h"
 
 #include <ncurses.h>
 
@@ -7,7 +8,9 @@
 #include <string>
 #include <vector>
 
-std::string version = "1.0.0";
+const std::string version = "1.0.0";
+const std::string main_repo_plugins = "github.com/cadenfinley/cjsshell/plugins";
+const std::string main_repo_themes = "github.com/cadenfinley/cjsshell/themes";
 
 namespace tui {
 
@@ -44,9 +47,14 @@ static const std::vector<std::string> edit_items_cjprofile = {
 };
 
 static const std::vector<std::string> theme_menu = {
-    "1) List Themes", "2) Download Themes", "3) Uninstall Themes", "4) Exit"};
+    "1) List Themes",
+    "2) Download Themes",
+    "3) Uninstall Themes",
+    "4) Exit"};
 static const std::vector<std::string> plugin_menu = {
-    "1) List Installed Plugins", "2) Download Plugins", "3) Uninstall Plugins",
+    "1) List Installed Plugins",
+    "2) Download Plugins",
+    "3) Uninstall Plugins",
     "4) Exit"};
 
 static void showMenu(const std::string& title,
@@ -356,57 +364,56 @@ static void configureFile(const std::string& path,
 }
 
 void Configurator::run() {
-  initscr();
-  noecho();
-  cbreak();
-  keypad(stdscr, TRUE);
+    initscr();
+    noecho();
+    cbreak();
+    keypad(stdscr, TRUE);
 
-  int choice = 0;
-  const char* home = getenv("HOME");
-  std::string rc = std::string(home ? home : "") + "/.cjshrc";
-  std::string profile = std::string(home ? home : "") + "/.cjprofile";
+    int choice = 0;
+    std::string rc = cjsh_filesystem::g_cjsh_source_path.string();
+    std::string profile = cjsh_filesystem::g_cjsh_profile_path.string();
 
-  while (true) {
-    clear();
-    {
-      int rows, cols;
-      getmaxyx(stdscr, rows, cols);
-      int splash_col = cols / 2;
-      for (size_t i = 0; i < splash.size() && (int)i < rows; ++i)
-        mvprintw((int)i, splash_col, splash[i].c_str());
-    }
-    mvprintw(0, 0, "CJ's Shell Configurator");
-    mvprintw(1, 0, ("Version: " + version).c_str());
-    for (size_t i = 0; i < main_menu.size(); ++i) {
-      if ((int)i == choice) attron(A_REVERSE);
-      mvprintw((int)i + 3, 2, main_menu[i].c_str());
-      if ((int)i == choice) attroff(A_REVERSE);
-    }
-    int c = getch();
-    switch (c) {
-      case KEY_UP:
-        choice = (choice + main_menu.size() - 1) % main_menu.size();
-        break;
-      case KEY_DOWN:
-        choice = (choice + 1) % main_menu.size();
-        break;
-      case '\n':
-        endwin();
-        if (choice == 0) {
-          configureFile(rc, edit_items_cjshrc);
-        } else if (choice == 1) {
-          configureFile(profile, edit_items_cjprofile);
-        } else if (choice == 2) {
-          showMenu("Manage Themes", theme_menu);
-        } else if (choice == 3) {
-          showMenu("Manage Plugins", plugin_menu);
-        } else if (choice == 4) {
-          return;
+    while (true) {
+        clear();
+        {
+            int rows, cols;
+            getmaxyx(stdscr, rows, cols);
+            int splash_col = cols / 2;
+            for (size_t i = 0; i < splash.size() && (int)i < rows; ++i)
+                mvprintw((int)i, splash_col, splash[i].c_str());
         }
-        initscr();
-        break;
+        mvprintw(0, 0, "CJ's Shell Configurator");
+        mvprintw(1, 0, ("Version: " + version).c_str());
+        for (size_t i = 0; i < main_menu.size(); ++i) {
+            if ((int)i == choice) attron(A_REVERSE);
+            mvprintw((int)i + 3, 2, main_menu[i].c_str());
+            if ((int)i == choice) attroff(A_REVERSE);
+        }
+        int c = getch();
+        switch (c) {
+            case KEY_UP:
+                choice = (choice + main_menu.size() - 1) % main_menu.size();
+                break;
+            case KEY_DOWN:
+                choice = (choice + 1) % main_menu.size();
+                break;
+            case '\n':
+                endwin();
+                if (choice == 0) {
+                    configureFile(rc, edit_items_cjshrc);
+                } else if (choice == 1) {
+                    configureFile(profile, edit_items_cjprofile);
+                } else if (choice == 2) {
+                    showMenu("Manage Themes", theme_menu);
+                } else if (choice == 3) {
+                    showMenu("Manage Plugins", plugin_menu);
+                } else if (choice == 4) {
+                    return;
+                }
+                initscr();
+                break;
+        }
     }
-  }
 }
 
 }  // namespace tui
