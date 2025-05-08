@@ -49,10 +49,40 @@ static const std::vector<std::string> edit_items_cjprofile = {
 };
 
 static const std::vector<std::string> theme_menu = {
-    "1) List Themes", "2) Download Themes", "3) Uninstall Themes", "4) Exit"};
+    "1) Download Themes", "2) Uninstall Themes", "3) Exit"};
 static const std::vector<std::string> plugin_menu = {
-    "1) List Installed Plugins", "2) Download Plugins", "3) Uninstall Plugins",
-    "4) Exit"};
+    "1) Download Plugins", "2) Uninstall Plugins", "3) Exit"};
+
+// new: GitHub API endpoints
+static const std::string api_themes_url =
+    "https://api.github.com/repos/cadenfinley/cjsshell/contents/themes";
+static const std::string api_plugins_url =
+    "https://api.github.com/repos/cadenfinley/cjsshell/contents/plugins";
+
+// new: fetch JSON directory listing and extract "name" fields
+static std::vector<std::string> fetch_remote_list(const std::string& url) {
+  std::vector<std::string> items;
+  FILE* pipe = popen(("curl -s " + url).c_str(), "r");
+  if (!pipe) return items;
+  char buffer[4096];
+  std::string result;
+  while (fgets(buffer, sizeof(buffer), pipe)) result += buffer;
+  pclose(pipe);
+  const std::string key = "\"name\":";
+  size_t pos = 0;
+  while ((pos = result.find(key, pos)) != std::string::npos) {
+    pos += key.length();
+    while (pos < result.size() &&
+           (result[pos] == ' ' || result[pos] == '\"' || result[pos] == ':'))
+      pos++;
+    size_t end = result.find_first_of("\",", pos);
+    if (end != std::string::npos) {
+      items.push_back(result.substr(pos, end - pos));
+      pos = end;
+    }
+  }
+  return items;
+}
 
 static void showMenu(const std::string& title,
                      const std::vector<std::string>& menu) {
@@ -266,6 +296,18 @@ static void manageThemes() {
   while (true) {
     clear();
     mvprintw(0, 0, "Manage Themes");
+    {
+      int rows, cols;
+      getmaxyx(stdscr, rows, cols);
+      int list_col = cols / 2;
+      mvprintw(0, list_col, "Installed Themes:");
+      int row = 1;
+      for (auto& entry : cjsh_filesystem::fs::directory_iterator(
+               cjsh_filesystem::g_cjsh_theme_path)) {
+        if (entry.path().extension() == ".json")
+          mvprintw(row++, list_col, entry.path().filename().c_str());
+      }
+    }
     for (size_t i = 0; i < theme_menu.size(); ++i) {
       if ((int)i == choice) attron(A_REVERSE);
       mvprintw((int)i + 2, 2, theme_menu[i].c_str());
@@ -280,11 +322,45 @@ static void manageThemes() {
         choice = (choice + 1) % theme_menu.size();
         break;
       case '\n':
-        if (choice == (int)theme_menu.size() - 1) return;
         if (choice == 0) {
-          list_themes();
-        } else {
+          auto items = fetch_remote_list(api_themes_url);
           clear();
+          mvprintw(0, 0, "Available Themes:");
+          int row = 1;
+          for (auto& name : items) mvprintw(row++, 0, name.c_str());
+          mvprintw(row + 1, 0, "Press any key...");
+          getch();
+        } else if (choice == 1) {
+          clear();
+          mvprintw(0, 0, "Uninstall Themes:");
+          std::vector<cjsh_filesystem::fs::path> themes;
+          for (auto& entry : cjsh_filesystem::fs::directory_iterator(
+                   cjsh_filesystem::g_cjsh_theme_path)) {
+            if (entry.path().extension() == ".json")
+              themes.push_back(entry.path());
+          }
+          for (size_t i = 0; i < themes.size(); ++i)
+            mvprintw((int)i + 1, 0, "%zu) %s", i + 1,
+                     themes[i].filename().c_str());
+          mvprintw((int)themes.size() + 2, 0, "Select theme #: ");
+          echo();
+          curs_set(1);
+          char num[16];
+          getnstr(num, 15);
+          noecho();
+          curs_set(0);
+          int idx = atoi(num) - 1;
+          if (idx >= 0 && idx < (int)themes.size()) {
+            cjsh_filesystem::fs::remove(themes[idx]);
+            mvprintw((int)themes.size() + 4, 0, "Deleted. Press any key...");
+          } else {
+            mvprintw((int)themes.size() + 4, 0,
+                     "Invalid selection. Press any key...");
+          }
+          getch();
+        } else if (choice == (int)theme_menu.size() - 1) {
+          return;
+        } else {
           mvprintw(0, 0, "Not yet implemented. Press any key...");
           getch();
         }
@@ -312,6 +388,19 @@ static void managePlugins() {
   while (true) {
     clear();
     mvprintw(0, 0, "Manage Plugins");
+    {
+      int rows, cols;
+      getmaxyx(stdscr, rows, cols);
+      int list_col = cols / 2;
+      mvprintw(0, list_col, "Installed Plugins:");
+      int row = 1;
+      for (auto& entry : cjsh_filesystem::fs::directory_iterator(
+               cjsh_filesystem::g_cjsh_plugin_path)) {
+        auto ext = entry.path().extension().string();
+        if (ext == ".dylib" || ext == ".so")
+          mvprintw(row++, list_col, entry.path().filename().c_str());
+      }
+    }
     for (size_t i = 0; i < plugin_menu.size(); ++i) {
       if ((int)i == choice) attron(A_REVERSE);
       mvprintw((int)i + 2, 2, plugin_menu[i].c_str());
@@ -326,11 +415,46 @@ static void managePlugins() {
         choice = (choice + 1) % plugin_menu.size();
         break;
       case '\n':
-        if (choice == (int)plugin_menu.size() - 1) return;
         if (choice == 0) {
-          list_plugins();
-        } else {
+          auto items = fetch_remote_list(api_plugins_url);
           clear();
+          mvprintw(0, 0, "Available Plugins:");
+          int row = 1;
+          for (auto& name : items) mvprintw(row++, 0, name.c_str());
+          mvprintw(row + 1, 0, "Press any key...");
+          getch();
+        } else if (choice == 1) {
+          clear();
+          mvprintw(0, 0, "Uninstall Plugins:");
+          std::vector<cjsh_filesystem::fs::path> plugins;
+          for (auto& entry : cjsh_filesystem::fs::directory_iterator(
+                   cjsh_filesystem::g_cjsh_plugin_path)) {
+            auto ext = entry.path().extension().string();
+            if (ext == ".dylib" || ext == ".so")
+              plugins.push_back(entry.path());
+          }
+          for (size_t i = 0; i < plugins.size(); ++i)
+            mvprintw((int)i + 1, 0, "%zu) %s", i + 1,
+                     plugins[i].filename().c_str());
+          mvprintw((int)plugins.size() + 2, 0, "Select plugin #: ");
+          echo();
+          curs_set(1);
+          char num[16];
+          getnstr(num, 15);
+          noecho();
+          curs_set(0);
+          int idx = atoi(num) - 1;
+          if (idx >= 0 && idx < (int)plugins.size()) {
+            cjsh_filesystem::fs::remove(plugins[idx]);
+            mvprintw((int)plugins.size() + 4, 0, "Deleted. Press any key...");
+          } else {
+            mvprintw((int)plugins.size() + 4, 0,
+                     "Invalid selection. Press any key...");
+          }
+          getch();
+        } else if (choice == (int)plugin_menu.size() - 1) {
+          return;
+        } else {
           mvprintw(0, 0, "Not yet implemented. Press any key...");
           getch();
         }
